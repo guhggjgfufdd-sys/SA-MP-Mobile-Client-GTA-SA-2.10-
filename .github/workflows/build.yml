@@ -30,22 +30,25 @@ jobs:
 
       - name: Patch C++ Source Code & Fix Header Issues
         run: |
-          # 1. استبدال CTimer::GetIsPaused في كافة ملفات الكود (شاملة AESoundManager.h)
+          # 1. حل تعارض الماكرو EPSILON في مكتبة opus لمنع تخريب ملف Collision.cpp
+          find app/src/main/cpp -type d -name "opus*" -exec grep -rl "EPSILON" {} + | xargs -r sed -i 's/\bEPSILON\b/OPUS_EPSILON/g'
+
+          # 2. استبدال CTimer::GetIsPaused في كافة ملفات الكود
           find app/src/main/cpp -type f \( -name "*.h" -o -name "*.cpp" \) -exec sed -i 's/CTimer::GetIsPaused()/false/g' {} +
 
-          # 2. إبطال أسطر Log المسببة للخطأ داخل ملفات Pool.h
+          # 3. إبطال أسطر Log المسببة للخطأ داخل ملفات Pool.h
           find app/src/main/cpp -name "Pool.h" -exec sed -i 's/\bLog(/ \/\/ Log(/g' {} +
           
-          # 3. إنشاء ملفات version.h المفقودة لمكتبة opus
+          # 4. إنشاء ملفات version.h المفقودة لمكتبة opus
           find app/src/main/cpp -type d -name "opus*" -exec touch {}/version.h \; -exec touch {}/src/version.h \; -exec touch {}/win32/version.h \;
 
-          # 4. إدراج كافة مجلدات الهيدر (.h) داخل CMakeLists
+          # 5. إدراج كافة مجلدات الهيدر (.h) داخل CMakeLists
           for dir in $(find app/src/main/cpp -type f -name "*.h" -exec dirname {} + | sort -u); do
             ABS_PATH=$(realpath "$dir")
             find app/src/main/cpp -name "CMakeLists.txt" -exec sed -i "1i include_directories(\"${ABS_PATH}\")" {} +
           done
 
-          # 5. إجبار المترجم على تجاوز أخطاء التحقق
+          # 6. إجبار المترجم على تجاوز أخطاء التحقق
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -fpermissive -Wno-everything")' {} +
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fpermissive -Wno-everything")' {} +
 
