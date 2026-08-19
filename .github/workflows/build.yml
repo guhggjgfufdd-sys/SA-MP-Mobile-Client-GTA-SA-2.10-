@@ -27,14 +27,15 @@ jobs:
         with:
           ndk-version: r23b
 
-      - name: Auto-Include Headers & Suppress Warnings
+      - name: Fix Header Paths & Suppress Warnings
         run: |
-          # البحث عن جميع المجلدات التي تحتوي على ملفات .h وتضمينها في CMake تلقائياً
-          find app/src/main/cpp -name "*.h" -exec dirname {} + | sort -u | while read -r dir; do
-            echo "include_directories(\"${PWD}/$dir\")" >> app/src/main/cpp/CMakeLists.txt
+          # 1. البحث عن جميع مجلدات الهيدر وإضافتها في أعلى ملفات CMake قبل أي add_subdirectory
+          for dir in $(find app/src/main/cpp -type f -name "*.h" -exec dirname {} + | sort -u); do
+            ABS_PATH=$(realpath "$dir")
+            find app/src/main/cpp -name "CMakeLists.txt" -exec sed -i "1i include_directories(\"${ABS_PATH}\")" {} +
           done
 
-          # إجبار المترجم على تجاوز أخطاء وتنبيهات C++
+          # 2. إجبار المترجم على قبول الأكواد وتجاهل التحذيرات
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -fpermissive -Wno-everything")' {} +
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fpermissive -Wno-everything")' {} +
 
