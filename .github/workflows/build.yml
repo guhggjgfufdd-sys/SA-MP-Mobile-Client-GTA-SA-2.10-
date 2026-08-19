@@ -30,25 +30,46 @@ jobs:
 
       - name: Patch C++ Source Code & Fix Header Issues
         run: |
-          # 1. حل تعارض الماكرو EPSILON في مكتبة opus لمنع تخريب ملف Collision.cpp
+          # 1. إنشاء ملف تعريف عالمي للأنواع المفقودة مثل int32 و uint8
+          cat << 'EOF' > app/src/main/cpp/global_fix.h
+          #ifndef GLOBAL_FIX_H
+          #define GLOBAL_FIX_H
+          #include <cstdint>
+          #include <cstddef>
+          #include <sys/types.h>
+          typedef int32_t int32;
+          typedef uint32_t uint32;
+          typedef int16_t int16;
+          typedef uint16_t uint16;
+          typedef int8_t int8;
+          typedef uint8_t uint8;
+          #endif
+          EOF
+
+          # 2. إجبار المترجم على تضمين global_fix.h في كل ملفات المشروع
+          FIX_HEADER_PATH=$(realpath app/src/main/cpp/global_fix.h)
+          find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_CXX_FLAGS \"\${CMAKE_CXX_FLAGS} -include ${FIX_HEADER_PATH}\")" {} +
+          find . -name "CMakeLists.txt" -exec sed -i "1i set(CMAKE_C_FLAGS \"\${CMAKE_C_FLAGS} -include ${FIX_HEADER_PATH}\")" {} +
+
+          # 3. حل تعارض الماكرو EPSILON في مكتبة opus لمنع تخريب ملف Collision.cpp
           find app/src/main/cpp -type d -name "opus*" -exec grep -rl "EPSILON" {} + | xargs -r sed -i 's/\bEPSILON\b/OPUS_EPSILON/g'
 
-          # 2. استبدال CTimer::GetIsPaused في كافة ملفات الكود
+          # 4. استبدال CTimer::GetIsPaused في كافة ملفات الكود
           find app/src/main/cpp -type f \( -name "*.h" -o -name "*.cpp" \) -exec sed -i 's/CTimer::GetIsPaused()/false/g' {} +
 
-          # 3. إبطال أسطر Log المسببة للخطأ داخل ملفات Pool.h
+          # 5. إبطال أسطر Log المسببة للخطأ داخل ملفات Pool.h
           find app/src/main/cpp -name "Pool.h" -exec sed -i 's/\bLog(/ \/\/ Log(/g' {} +
           
-          # 4. إنشاء ملفات version.h المفقودة لمكتبة opus
+          # 6. إنشاء ملفات version.h المفقودة لمكتبة opus
           find app/src/main/cpp -type d -name "opus*" -exec touch {}/version.h \; -exec touch {}/src/version.h \; -exec touch {}/win32/version.h \;
 
-          # 5. إدراج كافة مجلدات الهيدر (.h) داخل CMakeLists
+          # 7. إدراج كافة مجلدات الهيدر (.h) داخل CMakeLists
           for dir in $(find app/src/main/cpp -type f -name "*.h" -exec dirname {} + | sort -u); do
             ABS_PATH=$(realpath "$dir")
             find app/src/main/cpp -name "CMakeLists.txt" -exec sed -i "1i include_directories(\"${ABS_PATH}\")" {} +
           done
 
-          # 6. إجبار المترجم على تجاوز أخطاء التحقق
+          # 8. إجبار المترجم على تجاوز أخطاء التحقق وقمع التحذيرات
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -fpermissive -Wno-everything")' {} +
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fpermissive -Wno-everything")' {} +
 
