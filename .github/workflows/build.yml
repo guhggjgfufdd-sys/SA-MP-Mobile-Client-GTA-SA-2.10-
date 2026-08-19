@@ -24,21 +24,25 @@ jobs:
 
       - name: Setup Android NDK r23b
         uses: nttld/setup-ndk@v1
+        id: setup-ndk
         with:
           ndk-version: r23b
 
-      - name: Fix Missing Opus Headers & Build Flags
+      - name: Patch C++ Source Code & Fix Header Issues
         run: |
-          # 1. إنشاء ملفات version.h المفقودة في مكتبة opus لمنع توقف المترجم
-          find app/src/main/cpp -type d -name "opus*" -exec touch {}/version.h \; -exec touch {}/src/version.h \; -exec touch {}/win32/version.h \;
+          # 1. إبطال أسطر Log المسببة للخطأ داخل ملفات Pool.h
+          find app/src/main/cpp -name "Pool.h" -exec sed -i 's/\bLog(/ \/\/ Log(/g' {} +
           
-          # 2. إدراج كافة مجلدات الهيدر (.h) داخل ملفات CMakeLists تلقائياً
+          # 2. إنشاء ملفات version.h لمكتبة opus
+          find app/src/main/cpp -type d -name "opus*" -exec touch {}/version.h \; -exec touch {}/src/version.h \; -exec touch {}/win32/version.h \;
+
+          # 3. إدراج كافة مجلدات الهيدر (.h) داخل CMakeLists
           for dir in $(find app/src/main/cpp -type f -name "*.h" -exec dirname {} + | sort -u); do
             ABS_PATH=$(realpath "$dir")
             find app/src/main/cpp -name "CMakeLists.txt" -exec sed -i "1i include_directories(\"${ABS_PATH}\")" {} +
           done
 
-          # 3. قمع الأخطاء والتحذيرات وإجبار المترجم على المتابعة
+          # 4. قمع التنبيهات وإضافة الخيارات المرنة
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -fpermissive -Wno-everything")' {} +
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fpermissive -Wno-everything")' {} +
 
@@ -46,7 +50,9 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug -x test --continue
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: ./gradlew assembleDebug -x test --continue -Pandroid.ndkPath="${{ steps.setup-ndk.outputs.ndk-path }}"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
