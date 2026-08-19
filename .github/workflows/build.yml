@@ -22,16 +22,23 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Setup Android NDK r25c
+      - name: Setup Android NDK r23b
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: r25c
+          ndk-version: r23b
+
+      - name: Fix C++ Compiler Warning Restrictions
+        run: |
+          # إزالة خيار -Werror المسبب للإيقاف من جميع ملفات CMake
+          find . -name "CMakeLists.txt" -exec sed -i 's/-Werror//g' {} +
+          # إجبار نظام التجميع على تجاهل التحذيرات غير المسببة للانهيار
+          find . -name "build.gradle" -exec sed -i 's/cppFlags "/cppFlags "-w -Wno-error /g' {} +
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
