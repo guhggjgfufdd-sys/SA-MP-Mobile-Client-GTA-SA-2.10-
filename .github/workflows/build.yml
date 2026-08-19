@@ -30,8 +30,8 @@ jobs:
 
       - name: Patch C++ Source Code & Fix Header Issues
         run: |
-          # 1. إصلاح تعارض CTimer داخل ملف AEAudioHardware.h
-          find app/src/main/cpp -name "AEAudioHardware.h" -exec sed -i 's/CTimer::GetIsPaused()/false/g' {} +
+          # 1. استبدال CTimer::GetIsPaused في كافة ملفات الكود (شاملة AESoundManager.h)
+          find app/src/main/cpp -type f \( -name "*.h" -o -name "*.cpp" \) -exec sed -i 's/CTimer::GetIsPaused()/false/g' {} +
 
           # 2. إبطال أسطر Log المسببة للخطأ داخل ملفات Pool.h
           find app/src/main/cpp -name "Pool.h" -exec sed -i 's/\bLog(/ \/\/ Log(/g' {} +
