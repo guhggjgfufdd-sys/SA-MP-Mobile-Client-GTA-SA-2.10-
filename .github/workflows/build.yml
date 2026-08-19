@@ -27,8 +27,14 @@ jobs:
         with:
           ndk-version: r23b
 
-      - name: Inject Ignore Flags
+      - name: Auto-Include Headers & Suppress Warnings
         run: |
+          # البحث عن جميع المجلدات التي تحتوي على ملفات .h وتضمينها في CMake تلقائياً
+          find app/src/main/cpp -name "*.h" -exec dirname {} + | sort -u | while read -r dir; do
+            echo "include_directories(\"${PWD}/$dir\")" >> app/src/main/cpp/CMakeLists.txt
+          done
+
+          # إجبار المترجم على تجاوز أخطاء وتنبيهات C++
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -fpermissive -Wno-everything")' {} +
           find . -name "CMakeLists.txt" -exec sed -i '1i set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fpermissive -Wno-everything")' {} +
 
